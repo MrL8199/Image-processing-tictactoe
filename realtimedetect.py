@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from scipy import math
 import numpy as np
 
+
 def preprocess(img_source):
     gray_img = cv2.cvtColor(img_source, cv2.COLOR_BGR2GRAY)
     (_, thresh) = cv2.threshold(gray_img, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
@@ -158,10 +159,11 @@ while (True):
             angle_segment = [0 for _ in range(0, angle_probes)]
             for point in pc[4]:
                 # if possible...
-                # x - center_x
+                # x of point - center_x of object
                 dx = point[0][0] - pc[0]
                 if dx == 0:
                     continue
+                # y of point - y of object
                 dy = point[0][1] - pc[1]
                 # ..calculate atan and convert into degree measure
                 rad_angle = math.atan(dy / dx) * 180 / math.pi
@@ -174,7 +176,6 @@ while (True):
                 if dx >= 0 <= dy:
                     rad_angle = 90 - rad_angle
                 angle_segment[int(rad_angle / (360 / angle_probes))] += 1
-
             object_avg = sum(angle_segment) / len(angle_segment)
             variance = 0
             for i in angle_segment:
@@ -223,7 +224,7 @@ while (True):
                 else:
                     row_detected = 0
             board_state[row_detected][col_detected] = mark
-        if(board_state != old_board):
+        if (board_state != old_board):
             old_board = board_state
             print_board_stage(board_state)
             print("Trạng thái: " + get_status(board_state) + "\n")

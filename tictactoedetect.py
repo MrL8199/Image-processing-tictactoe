@@ -160,6 +160,8 @@ for file_path in allfiles:
             angle_probes = 45
             angle_segment = [0 for _ in range(0, angle_probes)]
             for point in pc[4]:
+                point1 = [point[0][0], point[0][1]]
+                point2 = [pc[0], pc[1]]
                 # if possible...
                 # x - center_x
                 dx = point[0][0] - pc[0]
@@ -194,14 +196,13 @@ for file_path in allfiles:
         not_dynamic_anymore_threshold = sum([c[5] for c in board]) / len(board) - 1
         board_state = [['_', '_', '_'], ['_', '_', '_'], ['_', '_', '_']]
         for c in board:
-            xarr = [point[0][0] for point in c[4]]
-            yarr = [point[0][1] for point in c[4]]
             if c[5] >= not_dynamic_anymore_threshold:
                 mark = 'X'
                 cv2.drawContours(image, [c[4]], 0, (255, 0, 0), 3)
             else:
                 mark = 'O'
                 cv2.drawContours(image, [c[4]], 0, (0, 0, 255), 3)
+            print("\n\n")
             # read the logical position form the physical position in an image
             x_diff = boards_data[ind][0] - c[0]
             y_diff = boards_data[ind][1] - c[1]
@@ -226,6 +227,6 @@ for file_path in allfiles:
                     row_detected = 0
             board_state[row_detected][col_detected] = mark
             # print(row_detected, col_detected, mark, c[5])
-        cv2.imwrite('output/'+os.path.basename(file_path), image)
+        cv2.imwrite('output/' + os.path.basename(file_path), image)
         print_board_stage(board_state)
         print("Trạng thái: " + get_status(board_state) + "\n")
