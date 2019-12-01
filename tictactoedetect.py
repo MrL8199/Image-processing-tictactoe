@@ -126,11 +126,7 @@ for file_path in allfiles:
     cv2.imwrite('binary-image/' + os.path.basename(file_path), binary_img)
     boards_data = new_detect_boards(contours, too_small=0.25)
     contours_image = image
-    print(len(contours))
-    for contour in contours:
-        cv2.drawContours(contours_image, contour, -1, (0, 255, 0), 3)
 
-    cv2.imwrite('contour/' + os.path.basename(file_path), contours_image)
 
     # process contours
     processed_contours = [[] for _ in range(0, len(boards_data) + 1)]  # [[cx, cy, w, h, contours], [], [], ...]
