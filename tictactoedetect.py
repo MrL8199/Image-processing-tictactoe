@@ -13,7 +13,8 @@ def preprocess(img_source):
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
     binary_img = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
 
-    contours, hierarchy = cv2.findContours(binary_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    #cv2.CHAIN_APPROX_SIMPLE
+    contours, hierarchy = cv2.findContours(binary_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
     return binary_img, contours
 
 
@@ -71,6 +72,8 @@ def new_detect_boards(contours, too_small=0.00):
         res_boards_coords.append(b)
     return res_boards_coords
 
+def get_distance(p1, p2):
+    return math.sqrt((p1[0]-p2[0])**2 + (p1[1] - p2[1])**2)
 
 def print_board_stage(board_stage):
     for i in range(0, len(board_stage)):
@@ -117,9 +120,17 @@ for file_path in allfiles:
     print('Hình ', os.path.basename(file_path), ':')
     index += 1  # iteration counter
 
+
     # detect vunfg
     binary_img, contours = preprocess(image)
+    cv2.imwrite('binary-image/' + os.path.basename(file_path), binary_img)
     boards_data = new_detect_boards(contours, too_small=0.25)
+    contours_image = image
+    print(len(contours))
+    for contour in contours:
+        cv2.drawContours(contours_image, contour, -1, (0, 255, 0), 3)
+
+    cv2.imwrite('contour/' + os.path.basename(file_path), contours_image)
 
     # process contours
     processed_contours = [[] for _ in range(0, len(boards_data) + 1)]  # [[cx, cy, w, h, contours], [], [], ...]
@@ -156,53 +167,30 @@ for file_path in allfiles:
                 continue
             if pc[2] > boards_data[board_pc][2] * max_size or pc[3] > boards_data[board_pc][3] * max_size:
                 continue
-            # calculate angle intervals
-            angle_probes = 45
-            angle_segment = [0 for _ in range(0, angle_probes)]
+            canO = True
             for point in pc[4]:
-                point1 = [point[0][0], point[0][1]]
-                point2 = [pc[0], pc[1]]
-                # if possible...
-                # x - center_x
-                dx = point[0][0] - pc[0]
-                if dx == 0:
-                    continue
-                dy = point[0][1] - pc[1]
-                # ..calculate atan and convert into degree measure
-                rad_angle = math.atan(dy / dx) * 180 / math.pi
-                if dx < 0 > dy:
-                    rad_angle = 270 - rad_angle
-                if dx < 0 <= dy:
-                    rad_angle = 270 - rad_angle
-                if dx >= 0 > dy:
-                    rad_angle = 90 - rad_angle
-                if dx >= 0 <= dy:
-                    rad_angle = 90 - rad_angle
-                angle_segment[int(rad_angle / (360 / angle_probes))] += 1
-
-            object_avg = sum(angle_segment) / len(angle_segment)
-            variance = 0
-            for i in angle_segment:
-                variance += (i - object_avg) ** 2
-            variance = float(variance) / (len(angle_segment))
-            # each object gets new field - variance
-            pc.append(variance)
+                if canO:
+                    point1 = [point[0][0], point[0][1]]
+                    point2 = [pc[0], pc[1]]
+                    dis = get_distance(point1, point2)
+                    if (dis < (pc[3] * 0.2)):
+                        canO = False
+            pc.append(canO)
             # and the entire object is put into new list
             detected_objects[board_pc].append(pc)
 
     # begin board calculations
     for ind, board in zip(range(0, len(detected_objects)), detected_objects):
         # plot and decide board state
-        not_dynamic_anymore_threshold = sum([c[5] for c in board]) / len(board) - 1
         board_state = [['_', '_', '_'], ['_', '_', '_'], ['_', '_', '_']]
         for c in board:
-            if c[5] >= not_dynamic_anymore_threshold:
-                mark = 'X'
-                cv2.drawContours(image, [c[4]], 0, (255, 0, 0), 3)
-            else:
+            if c[5]:
                 mark = 'O'
                 cv2.drawContours(image, [c[4]], 0, (0, 0, 255), 3)
-            print("\n\n")
+            else:
+                mark = 'X'
+                cv2.drawContours(image, [c[4]], 0, (255, 0, 0), 3)
+
             # read the logical position form the physical position in an image
             x_diff = boards_data[ind][0] - c[0]
             y_diff = boards_data[ind][1] - c[1]

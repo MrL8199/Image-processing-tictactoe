@@ -2,15 +2,14 @@ import glob as glob
 import cv2
 import matplotlib.pyplot as plt
 from scipy import math
-import numpy as np
-
 
 def preprocess(img_source):
     gray_img = cv2.cvtColor(img_source, cv2.COLOR_BGR2GRAY)
     (_, thresh) = cv2.threshold(gray_img, 0, 255, cv2.THRESH_BINARY_INV | cv2.THRESH_OTSU)
     kernel = cv2.getStructuringElement(cv2.MORPH_RECT, (5, 5))
     binary_img = cv2.morphologyEx(thresh, cv2.MORPH_CLOSE, kernel)
-    contours, hierarchy = cv2.findContours(binary_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+    # cv2.CHAIN_APPROX_SIMPLE
+    contours, hierarchy = cv2.findContours(binary_img, cv2.RETR_TREE, cv2.CHAIN_APPROX_NONE)
     return binary_img, contours
 
 
@@ -68,6 +67,8 @@ def new_detect_boards(contours, too_small=0.00):
         res_boards_coords.append(b)
     return res_boards_coords
 
+def get_distance(p1, p2):
+    return math.sqrt((p1[0]-p2[0])**2 + (p1[1] - p2[1])**2)
 
 def print_board_stage(board_stage):
     for i in range(0, len(board_stage)):
@@ -154,35 +155,18 @@ while (True):
                 continue
             if pc[2] > boards_data[board_pc][2] * max_size or pc[3] > boards_data[board_pc][3] * max_size:
                 continue
-            # calculate angle intervals
-            angle_probes = 45
-            angle_segment = [0 for _ in range(0, angle_probes)]
+
+            canO = True
             for point in pc[4]:
-                # if possible...
-                # x of point - center_x of object
-                dx = point[0][0] - pc[0]
-                if dx == 0:
-                    continue
-                # y of point - y of object
-                dy = point[0][1] - pc[1]
-                # ..calculate atan and convert into degree measure
-                rad_angle = math.atan(dy / dx) * 180 / math.pi
-                if dx < 0 > dy:
-                    rad_angle = 270 - rad_angle
-                if dx < 0 <= dy:
-                    rad_angle = 270 - rad_angle
-                if dx >= 0 > dy:
-                    rad_angle = 90 - rad_angle
-                if dx >= 0 <= dy:
-                    rad_angle = 90 - rad_angle
-                angle_segment[int(rad_angle / (360 / angle_probes))] += 1
-            object_avg = sum(angle_segment) / len(angle_segment)
-            variance = 0
-            for i in angle_segment:
-                variance += (i - object_avg) ** 2
-            variance = float(variance) / (len(angle_segment))
-            # each object gets new field - variance
-            pc.append(variance)
+                # nếu là O thì khoảng cách giữa các điểm của contour luôn > 0.2 * kích thước contour
+                if canO:
+                    point1 = [point[0][0], point[0][1]]
+                    point2 = [pc[0], pc[1]]
+                    dis = get_distance(point1, point2)
+                    if (dis < (pc[3] * 0.2)):
+                        canO = False
+            pc.append(canO)
+
             # and the entire object is put into new list
             detected_objects[board_pc].append(pc)
 
@@ -190,17 +174,16 @@ while (True):
     board = detected_objects[0]
     # plot and decide board state
     if (len(board) > 0 and boards_data[0][2] / boards_data[0][3] < 1.3):
-        not_dynamic_anymore_threshold = sum([c[5] for c in board]) / len(board) - 1
         board_state = [['_', '_', '_'], ['_', '_', '_'], ['_', '_', '_']]
         for c in board:
             xarr = [point[0][0] for point in c[4]]
             yarr = [point[0][1] for point in c[4]]
-            if c[5] >= not_dynamic_anymore_threshold:
-                mark = 'X'
-                cv2.drawContours(image, [c[4]], 0, (255, 0, 0), 3)
-            else:
+            if c[5]:
                 mark = 'O'
                 cv2.drawContours(image, [c[4]], 0, (0, 0, 255), 3)
+            else:
+                mark = 'X'
+                cv2.drawContours(image, [c[4]], 0, (255, 0, 0), 3)
             # read the logical position form the physical position in an image
             x_diff = boards_data[0][0] - c[0]
             y_diff = boards_data[0][1] - c[1]
